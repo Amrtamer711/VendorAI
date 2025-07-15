@@ -12,15 +12,17 @@ from config import SHARED_DRIVE_ID, ENV
 # DB path and name
 if ENV == "render":
     DB_NAME = "usage_logs_render.db"
-    DB_PATH = "/VendorAI/Data/usage_logs.db"
+    DB_PATH = "/VendorAI/Data/usage_logs_render.db"
+    JSON_PATH = "/VendorAI/Data/routes-key.json"
 else:
     DB_NAME = "usage_logs_local.db"
     DB_PATH = "usage_logs.db"
+    JSON_PATH = "routes-key.json"
 
 
 # Google Drive setup
 SCOPES = ["https://www.googleapis.com/auth/drive"]
-creds = Credentials.from_service_account_file("routes-key.json", scopes=SCOPES)
+creds = Credentials.from_service_account_file(JSON_PATH, scopes=SCOPES)
 drive_service = build("drive", "v3", credentials=creds)
 
 # Thread safety

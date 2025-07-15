@@ -29,14 +29,19 @@ def handle_file_dm(event, say):
         soa_path = user_file_store[user]["soa"]
 
         message_lines = event.get("text", "").splitlines()
-        message_flags = [line.lower().strip() for line in message_lines if line.strip()]
-        is_clean = any("clean" in line for line in message_flags)
-        is_dirty = any("dirty" in line for line in message_flags)
+        message_lines = [line.strip() for line in message_lines if line.strip()]
 
+        is_clean = is_dirty = False
         user_comments = None
-        if is_dirty and len(message_flags) > 1:
-            dirty_index = next(i for i, line in enumerate(message_flags) if "dirty" in line)
-            user_comments = "\n".join(message_flags[dirty_index + 1:])
+
+        if message_lines:
+            first_line_lower = message_lines[0].lower()
+            is_clean = "clean" in first_line_lower
+            is_dirty = "dirty" in first_line_lower
+
+            if is_dirty and len(message_lines) > 1:
+                user_comments = "\n".join(message_lines[1:])
+
 
         if is_clean:
             process_clean_vendor_reconciliation(vendor_path, soa_path, say, channel)

@@ -1,35 +1,11 @@
 from clients import client
 import pandas as pd
 from io import StringIO
+from prompts import generate_table_prompt
 
 
 # GPT response generator
 def generate_gpt_table(user_text, file_path=None, user_comments=None):
-    system_prompt = """You are a financial assistant at MMG (Multi Media Group). Your task is to extract invoice data
-from vendor Statements of Account (SOAs) uploaded as PDF documents. Your output must follow these strict rules:
-
-1. Output only a markdown table and nothing else — no explanations, summaries, or introductions.
-2. The table must contain exactly four columns with these headers (case-sensitive):
-   | Date | Invoice Number | Amount | Remaining Amount |
-3. Each row must represent one invoice, with its date, invoice number, amount, and remaining amount.
-4. Dates must be formatted as DD/Mon/YYYY (e.g., 28/Dec/2024).
-5. Amounts must be raw numbers only — no commas, no currency symbols.
-6. For extracting the correct Invoice Number column, apply the following logic:
-   - Prioritize columns named (in order): "Invoice Number" → "Document No" → "External Document No"
-   - Within those columns, extract values that follow this pattern: an uppercase letter prefix followed by digits or special characters, e.g.:
-     • INVMMT-24-279
-     • S-INV+-04868
-     • PINV-004934
-   - Ignore suffixes or extra labels like "May 2022" that come **after** the actual invoice number.
-7. At the end of the SOA, there may be additional charges such as interest or finance fees that do not have a `Date` or `Invoice Number`. Only include such a row **if the row is clearly labeled with the word "interest" (case-insensitive)** in the original document. If detected, include a single additional row at the bottom of the table like this:
-   | - | INTEREST | <amount> | <remaining amount> |
-   Be VERY alert of this situation, as it can happen in any SOA. But do not confuse it for an actual invoice row or the total row at the bottom.
-8. The markdown table must begin and end with pipe (`|`) characters for every row, including the header.
-9. Do not include any TOTAL row. Exclude any totals or summaries at the bottom of the table.
-10. If any row has missing or unclear data (and is not an interest charge), skip it — do not guess or add placeholders.
-11. If there is no separate "Remaining Amount" column, assume the "Amount" is also the "Remaining Amount" and duplicate that value in both columns.
-"""
-
     try:
         # Upload file to OpenAI
         if file_path:
@@ -44,7 +20,7 @@ from vendor Statements of Account (SOAs) uploaded as PDF documents. Your output 
             response = client.responses.create(
             model="gpt-4.1",
             input=[
-                {"role": "system", "content": system_prompt},
+                {"role": "system", "content": generate_table_prompt},
                 {
                     "role": "user",
                     "content": [

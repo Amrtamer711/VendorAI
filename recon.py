@@ -21,6 +21,7 @@ def process_dirty_vendor_reconciliation(vendor_path, soa_path, say, channel, use
     say(f"Vendor Total Claim: `{vendor_claimed_total:,.2f}`")
 
     df_fully, df_partial, df_unmatched, unbooked_difference, _ = reconcile_and_report(df_vendor, df_soa, say)
+    print(df_unmatched)
     inject_recon_values_to_excel(df_fully, df_partial, df_unmatched, unbooked_difference, vendor_claimed_total)
     send_file_to_user(channel, "filled_recon.xlsx", say)
     cleanup_files(vendor_path, soa_path, soa_path_pdf)

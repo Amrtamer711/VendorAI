@@ -7,6 +7,7 @@ import requests
 import re
 import subprocess
 from clients import web_client
+import pandas as pd
 
 def download_slack_file(file_info, user, user_file_store):
     file_name = file_info["name"]
@@ -64,9 +65,9 @@ def inject_recon_values_to_excel(df_fully, df_partial, df_unmatched, unbooked_di
     ws = wb.active
 
     # Totals
-    total_booked = round(df_fully["SOA Remaining"].sum(), 2)
+    total_booked = round(df_fully.get("SOA Remaining", pd.Series(dtype=float)).sum(), 2)
+    total_unmatched = round(df_unmatched.get("Amount", pd.Series(dtype=float)).sum(), 2)
     total_partial = round(sum(x["Difference"] for x in unbooked_difference), 2)
-    total_unmatched = round(df_unmatched["Amount"].sum(), 2)
     adjusted_books_balance = round(total_booked + total_unmatched + total_partial, 2)
     difference = round(vendor_claimed_total - adjusted_books_balance, 2)
 
@@ -79,10 +80,11 @@ def inject_recon_values_to_excel(df_fully, df_partial, df_unmatched, unbooked_di
     ws[f"A{start_row}"] = "Invoice not booked"
     ws[f"A{start_row}"].font = Font(bold=True)
     start_row += 1
-    for item in df_unmatched.to_dict(orient="records"):
-        ws[f"A{start_row}"] = item["Invoice Number"]
-        ws[f"C{start_row}"] = item["Amount"]
-        start_row += 1
+    if not df_unmatched.empty and "Invoice Number" in df_unmatched.columns and "Amount" in df_unmatched.columns:
+        for item in df_unmatched.to_dict(orient="records"):
+            ws[f"A{start_row}"] = item["Invoice Number"]
+            ws[f"C{start_row}"] = item["Amount"]
+            start_row += 1
 
     # Write payment not booked
     start_row += 1
@@ -121,7 +123,8 @@ def inject_recon_values_to_excel(df_fully, df_partial, df_unmatched, unbooked_di
         row = total_start + (i * 2)
 
         ws[f"A{row}"] = label
-        ws[f"D{row}"] = value
+        ws[f"D{row}"] = float(value) if pd.notna(value) else ""
+        ws[f"D{row}"].number_format = '#,##0.00'
 
         if is_red:
             bold_font = Font(bold=True, color="FF0000")

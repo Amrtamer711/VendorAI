@@ -12,10 +12,18 @@ def prepare_vendor_df(df):
     }, inplace=True)
 
     df["Date"] = pd.to_datetime(df["Date"], errors='coerce').dt.strftime('%Y-%m-%d')
-    df["Invoice Number"] = df["Invoice Number"].astype(str).str.strip()
+
+    # Clean and convert Invoice Numbers
+    df = df[df["Invoice Number"].notna()]
+    df["Invoice Number"] = pd.to_numeric(df["Invoice Number"], errors="coerce").astype("Int64").astype(str)
+
+    df = df[df["Invoice Number"] != ""]  # Extra safety
+
     df["Amount"] = pd.to_numeric(df["Amount"], errors='coerce').abs()
     df["Remaining Amount"] = pd.to_numeric(df["Remaining Amount"], errors='coerce').abs()
+
     return df.reset_index(drop=True)
+
 
 def prepare_soa_df(df):
     df = df[df["Date"].astype(str).str.upper() != "TOTAL"].copy()
@@ -73,9 +81,15 @@ def reconcile_and_report(df_vendor, df_soa, say):
             })
 
     # Convert all to DataFrames
-    df_fully = pd.DataFrame(matched_fully)
-    df_partial = pd.DataFrame(matched_partial)
-    df_unmatched = pd.DataFrame(unmatched_rows)
+    df_fully = pd.DataFrame(matched_fully, columns=[
+    "Row", "Invoice Number", "Date_soa", "Date_vendor",
+    "SOA Amount", "Vendor Amount", "SOA Remaining", "Vendor Remaining"
+    ])
+    df_partial = pd.DataFrame(matched_partial, columns=df_fully.columns)
+
+    df_unmatched = pd.DataFrame(unmatched_rows, columns=[
+        "Row", "Invoice Number", "Amount", "Remaining Amount", "Date_soa"
+    ])
 
     say(f"✅ *PAYMENTS BOOKED (MATCHED):*\n```{df_fully.to_string(index=False)}```")
     say(f"Total agreed to pay: `{sum(agreed_to_pay):,.2f}`")

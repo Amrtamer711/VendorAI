@@ -15,14 +15,15 @@ def process_dirty_vendor_reconciliation(vendor_path, soa_path, say, channel, use
     except Exception as e:
         say(f"❌ Failed to prepare data: {e}")
         return
-
+    
+    print(df_soa)
+    print(df_vendor)
     vendor_claimed_total = extract_claimed_total_from_pdf(soa_path_pdf)
     say(f"*FULL SOA PARSED TABLE:*\n```{df_soa.to_string(index=False)}```")
     say(f"Vendor Remaining Amount: `{df_soa['Remaining Amount'].sum():,.2f}`")
     say(f"Vendor Total Claim: `{vendor_claimed_total:,.2f}`")
 
-    df_fully, df_partial, df_unmatched, unbooked_difference, _ = reconcile_and_report(df_vendor, df_soa, say)
-    print(df_unmatched)
+    df_fully, df_partial, df_unmatched, unbooked_difference = reconcile_and_report(df_vendor, df_soa, say)
     inject_recon_values_to_excel(df_fully, df_partial, df_unmatched, unbooked_difference, vendor_claimed_total)
     send_file_to_user(channel, "filled_recon.xlsx", say)
     cleanup_files(vendor_path, soa_path, soa_path_pdf)
@@ -55,6 +56,9 @@ def process_clean_vendor_reconciliation(vendor_path, soa_path, say, channel):
         df_soa = prepare_soa_df(df_soa)
         df_vendor = prepare_vendor_df(df_vendor)
 
+        print(df_soa)
+        print(df_vendor)
+
         say(f"*FULL SOA PARSED TABLE:*\n```{df_soa.to_string(index=False)}```")
         say(f"Vendor Remaining Amount: `{df_soa['Remaining Amount'].sum():,.2f}`")
         say(f"🧾 Vendor claimed total (last row): `{vendor_claimed_total:,.2f}`")
@@ -62,7 +66,7 @@ def process_clean_vendor_reconciliation(vendor_path, soa_path, say, channel):
         say(f"❌ Data preparation failed: {e}")
         return
 
-    df_fully, df_partial, df_unmatched, unbooked_difference, vendor_claimed_total = reconcile_and_report(df_vendor, df_soa, say)
+    df_fully, df_partial, df_unmatched, unbooked_difference = reconcile_and_report(df_vendor, df_soa, say)
     inject_recon_values_to_excel(df_fully, df_partial, df_unmatched, unbooked_difference, vendor_claimed_total)
     send_file_to_user(channel, "filled_recon.xlsx", say)
     cleanup_files(vendor_path, soa_path)

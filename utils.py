@@ -1,30 +1,90 @@
 import pandas as pd
 import re
 from clients import web_client
-from slack_sdk.models.blocks import SectionBlock, ActionsBlock
-from slack_sdk.models.blocks.block_elements import ButtonElement
+from database import log_message
+from slack_sdk.models.blocks import SectionBlock, ActionsBlock, ButtonElement
+from slack_sdk.models.blocks.basic_components import MarkdownTextObject
+from slack_sdk.models.blocks import Block
+
+def clean_invoice_number(val):
+    if isinstance(val, float) and val.is_integer():
+        return str(int(val))
+    return str(val).strip()
+
+# def prompt_star_rating(user, channel, say, pending_ratings):
+    # blocks = [
+    #     SectionBlock(text=MarkdownTextObject(text="⭐ *Rate the reconciliation results:*")).to_dict(),
+    #     ActionsBlock(
+    #         elements=[
+    #             ButtonElement(text="⭐", value="1", action_id="rate_1"),
+    #             ButtonElement(text="⭐⭐", value="2", action_id="rate_2"),
+    #             ButtonElement(text="⭐⭐⭐", value="3", action_id="rate_3"),
+    #             ButtonElement(text="⭐⭐⭐⭐", value="4", action_id="rate_4"),
+    #             ButtonElement(text="⭐⭐⭐⭐⭐", value="5", action_id="rate_5"),
+    #         ]
+    #     ).to_dict()
+    # ]
+    # say(blocks=blocks, channel=channel)
+from threading import Timer
+from database import log_message  # or wherever this is defined
+
+from threading import Timer
 from database import log_message
 
-def prompt_star_rating(say, user_id, user_name):
-    star_buttons = [
-        ButtonElement(text={"type": "plain_text", "text": "⭐️"}, value="1", action_id="rate_1"),
-        ButtonElement(text={"type": "plain_text", "text": "⭐️⭐️"}, value="2", action_id="rate_2"),
-        ButtonElement(text={"type": "plain_text", "text": "⭐️⭐️⭐️"}, value="3", action_id="rate_3"),
-        ButtonElement(text={"type": "plain_text", "text": "⭐️⭐️⭐️⭐️"}, value="4", action_id="rate_4"),
-        ButtonElement(text={"type": "plain_text", "text": "⭐️⭐️⭐️⭐️⭐️"}, value="5", action_id="rate_5"),
-    ]
-
-    say(
+def prompt_star_rating(user, channel, say, pending_ratings, rated_users, user_star_messages):
+    response = say(
+        channel=channel,
+        text="How would you rate this reconciliation?",
         blocks=[
-            SectionBlock(text="⭐ How would you rate this reconciliation?").to_dict(),
-            ActionsBlock(elements=star_buttons).to_dict(),
-        ],
-        text="Please rate this reconciliation.",
-        metadata={"user_id": user_id, "username": user_name}
+            {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": "*How would you rate this reconciliation?*"}
+            },
+            {
+                "type": "actions",
+                "block_id": "rating_buttons",
+                "elements": [
+                    {
+                        "type": "button",
+                        "text": {"type": "plain_text", "text": f"{i} ⭐️"},
+                        "value": str(i),
+                        "action_id": f"rating_{i}"
+                    } for i in range(1, 6)
+                ]
+            }
+        ]
     )
 
+    # Save the message ts for future updates
+    ts = response["ts"]
+    user_star_messages[user] = (channel, ts)
+
+    # Set up a fallback timeout in case they don’t rate
+    def fallback():
+        if user not in rated_users:
+            profile = get_user_profile(user)
+            full_name = profile.get("real_name") or profile.get("display_name") or user
+            log_message(user, full_name, rating=None)
+        pending_ratings.pop(user, None)
+        user_star_messages.pop(user, None)
+
+    if user in pending_ratings:
+        pending_ratings[user].cancel()
+
+    t = Timer(60.0, fallback)
+    t.start()
+    pending_ratings[user] = t
+
+
+
+
 def prepare_vendor_df(df):
-    df = df[["Posting Date", "External Document No.", "Amount (LCY)", "Remaining Amt. (LCY)"]].copy()
+    required_cols = ["Posting Date", "External Document No.", "Amount (LCY)", "Remaining Amt. (LCY)"]
+    missing = [col for col in required_cols if col not in df.columns]
+    if missing:
+        raise ValueError(f"Missing required columns in vendor file: {missing}")
+
+    df = df[required_cols].copy()
     df.rename(columns={
         "Posting Date": "Date",
         "External Document No.": "Invoice Number",
@@ -34,16 +94,26 @@ def prepare_vendor_df(df):
 
     df["Date"] = pd.to_datetime(df["Date"], errors='coerce').dt.strftime('%Y-%m-%d')
 
-    # Clean and convert Invoice Numbers
-    df = df[df["Invoice Number"].notna()]
-    df["Invoice Number"] = pd.to_numeric(df["Invoice Number"], errors="coerce").astype("Int64").astype(str)
+    def clean_invoice_number(val):
+        if pd.isna(val):
+            return None
+        if isinstance(val, float) and val.is_integer():
+            return str(int(val))
+        return str(val).strip()
 
-    df = df[df["Invoice Number"] != ""]  # Extra safety
+    df["Invoice Number"] = df["Invoice Number"].apply(clean_invoice_number)
+    df = df[
+        df["Invoice Number"].notna() &
+        (df["Invoice Number"].str.lower() != "nan") &
+        (df["Invoice Number"] != "")
+    ]
 
     df["Amount"] = pd.to_numeric(df["Amount"], errors='coerce').abs()
     df["Remaining Amount"] = pd.to_numeric(df["Remaining Amount"], errors='coerce').abs()
 
     return df.reset_index(drop=True)
+
+
 
 
 def prepare_soa_df(df):
@@ -124,7 +194,7 @@ def reconcile_and_report(df_vendor, df_soa, say):
         say(f"Unmatched amount total: `{df_unmatched['Amount'].sum():,.2f}`")
 
     # Optional: Return the 3 tables for downstream use (e.g., Excel injection)
-    return df_fully, df_partial, df_unmatched, unbooked_difference, 1000000
+    return df_fully, df_partial, df_unmatched, unbooked_difference
 
 def markdown_to_slack(md: str) -> str:
     # Convert bold (**text** or *text*)

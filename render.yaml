@@ -1,12 +1,10 @@
 services:
   - type: web
-    name: vendor-recon-bot
-    env: python
-    pythonVersion: 3.11.8
-    region: oregon
+    name: vendorai
+    env: docker
     plan: free
-    buildCommand: pip install -r requirements.txt
-    startCommand: python app.py
+    dockerfilePath: ./Dockerfile
+    autoDeploy: true
     envVars:
       - key: SLACK_BOT_TOKEN
         sync: false

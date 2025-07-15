@@ -1,6 +1,27 @@
 import pandas as pd
 import re
 from clients import web_client
+from slack_sdk.models.blocks import SectionBlock, ActionsBlock
+from slack_sdk.models.blocks.block_elements import ButtonElement
+from database import log_message
+
+def prompt_star_rating(say, user_id, user_name):
+    star_buttons = [
+        ButtonElement(text={"type": "plain_text", "text": "⭐️"}, value="1", action_id="rate_1"),
+        ButtonElement(text={"type": "plain_text", "text": "⭐️⭐️"}, value="2", action_id="rate_2"),
+        ButtonElement(text={"type": "plain_text", "text": "⭐️⭐️⭐️"}, value="3", action_id="rate_3"),
+        ButtonElement(text={"type": "plain_text", "text": "⭐️⭐️⭐️⭐️"}, value="4", action_id="rate_4"),
+        ButtonElement(text={"type": "plain_text", "text": "⭐️⭐️⭐️⭐️⭐️"}, value="5", action_id="rate_5"),
+    ]
+
+    say(
+        blocks=[
+            SectionBlock(text="⭐ How would you rate this reconciliation?").to_dict(),
+            ActionsBlock(elements=star_buttons).to_dict(),
+        ],
+        text="Please rate this reconciliation.",
+        metadata={"user_id": user_id, "username": user_name}
+    )
 
 def prepare_vendor_df(df):
     df = df[["Posting Date", "External Document No.", "Amount (LCY)", "Remaining Amt. (LCY)"]].copy()

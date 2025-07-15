@@ -3,6 +3,7 @@ from file_handler import inject_recon_values_to_excel, send_file_to_user, cleanu
 from gpt_utils import extract_claimed_total_from_pdf, generate_gpt_table, extract_table_from_gpt_output
 from prompts import get_column_mapping
 import pandas as pd
+from utils import prompt_star_rating
 
 def process_dirty_vendor_reconciliation(vendor_path, soa_path, say, channel, user_comments=None):
     soa_path_pdf = convert_excel_to_pdf_mac(soa_path) if soa_path.endswith(".xlsx") else soa_path

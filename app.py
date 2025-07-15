@@ -5,6 +5,7 @@ from recon import process_clean_vendor_reconciliation, process_dirty_vendor_reco
 from file_handler import download_slack_file
 from prompts import rules_message
 from clients import slack_app, flask_app, handler
+import os
 
 user_file_store = defaultdict(dict)
 
@@ -53,5 +54,7 @@ def slack_events():
 if __name__ == "__main__":
     # init_db()
     # flask_app.run(port=3000)
-    flask_app.run(host="0.0.0.0", port=10000)
+    port = int(os.environ.get("PORT", 10000))
+    print(f"🚀 Flask starting on port {port}")
+    flask_app.run(host="0.0.0.0", port=port)
 

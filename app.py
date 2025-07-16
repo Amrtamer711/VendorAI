@@ -152,7 +152,7 @@ def slack_events():
 if __name__ == "__main__":
     # flask_app.run(port=3000)
     init_db()
-    periodic_drive_upload(interval_seconds=(60 if ENV=="local" else 7200))
+    periodic_drive_upload(interval_seconds=(60 if ENV=="local" else 86400))
     port = int(os.environ.get("PORT", 10000))
     print(f"🚀 Flask starting on port {port}")
     flask_app.run(host="0.0.0.0", port=port)
